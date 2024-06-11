@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 from itertools import combinations
+from random import shuffle
 
 DATA_FILE = 'teams.json'
 
@@ -16,9 +17,10 @@ def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as file:
         json.dump(data, file, ensure_ascii=False)
 
-def balance_teams(members):
+def balance_teams(members, tolerance=5):
     best_diff = float('inf')
     best_teams = None
+    shuffle(members)  # 멤버 리스트를 무작위로 섞음
     for combo in combinations(members, len(members) // 2):
         team1 = list(combo)
         team2 = [m for m in members if m not in team1]
@@ -28,6 +30,8 @@ def balance_teams(members):
         if diff < best_diff:
             best_diff = diff
             best_teams = (team1, team2)
+        if best_diff <= tolerance:
+            break
     return best_teams
 
 # Streamlit 앱 레이아웃
@@ -104,7 +108,7 @@ if len(selected_members) == 10:
         data["teams"] = [team1, team2]
         save_data(data)
         st.success("균형 잡힌 팀이 성공적으로 생성되었습니다!")
-        st.session_state['selected_members'] = []
+        # st.session_state['selected_members'] = []
 
 # 팀 초기화 및 재생성 버튼 추가
 if data["teams"]:
@@ -115,11 +119,14 @@ if data["teams"]:
         st.experimental_rerun()
 
     if st.button("팀 재생성"):
-        team1, team2 = balance_teams(selected_members)
-        data["teams"] = [team1, team2]
-        save_data(data)
-        st.success("팀이 성공적으로 재생성되었습니다!")
-        st.experimental_rerun()
+        if len(selected_members) == 10:
+            team1, team2 = balance_teams(selected_members)
+            data["teams"] = [team1, team2]
+            save_data(data)
+            st.success("팀이 성공적으로 재생성되었습니다!")
+            st.experimental_rerun()
+        else:
+            st.error("선택된 멤버가 10명이 아닙니다.")
 
 # 멤버 표시
 st.header("멤버")
@@ -133,3 +140,5 @@ st.header("팀")
 for i, team in enumerate(data["teams"], start=1):
     st.subheader(f"팀 {i}")
     st.write([f"{member['name']}: {member['score']}" for member in team])
+    team_score = sum(member['score'] for member in team)
+    st.write(f"팀 {i}의 총점: {team_score}")
